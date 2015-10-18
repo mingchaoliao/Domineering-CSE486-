@@ -5,13 +5,16 @@ import game.*;
 import java.util.*;
 
 public class AlphaBetaPlayer extends GamePlayer {
-
-	final int MAX_DEPTH = 7;
+	public final int EV = 2;
+	public int MAX_DEPTH = -1;
 	public static final double MAX_SCORE = 100000;
 	boolean isHome;
+	public char homeSym;
+	public char emptySym;
+	public char awaySym;
 	
 	public static void main(String [] args) {
-		GamePlayer p = new AlphaBetaPlayer("liaom"); //create player with nikename
+		GamePlayer p = new AlphaBetaPlayer("liaom2"); //create player with nikename
 		p.compete(args, 1);
 	}
 	
@@ -21,7 +24,22 @@ public class AlphaBetaPlayer extends GamePlayer {
 	
 	public GameMove getMove(GameState state, String lastMove) {
 		DomineeringState board = (DomineeringState)state;
+		
+		homeSym = board.homeSym;
+		awaySym = board.awaySym;
+		emptySym = board.emptySym;
+		
 		isHome = state.who == GameState.Who.HOME; //HOME: true, AWAY: false
+		if(EV == 1) {
+			MAX_DEPTH = 7;
+		} else if(EV == 2) {
+			if(isHome) {
+				MAX_DEPTH = 6;
+			} else {
+				MAX_DEPTH = 5;
+			}
+		}
+		
 		DomineeringMove mve = new DomineeringMove();
 
 		double[][] stack = new double[MAX_DEPTH+1][5]; // stack, first 4 are row1,col1,row2,col2, this fifth is the best score
@@ -38,8 +56,14 @@ public class AlphaBetaPlayer extends GamePlayer {
 		return mve;
 	}
 	public void alphabeta(char[][] map, int d, double a, double b, boolean isHome, double[][] stack) {
-		if(d == MAX_DEPTH || Math.abs(h(map,isHome)) == MAX_SCORE) {
-			stack[d][4]=h(map,isHome);
+		double ev_tem = 0;
+		if(EV == 1) {
+			ev_tem = h(map,isHome);
+		} else if(EV == 2) {
+			ev_tem = ev2(map,isHome);
+		}
+		if(d == MAX_DEPTH || Math.abs(ev_tem) == MAX_SCORE) {
+			stack[d][4]=ev_tem;
 			return ;
 		}
 
@@ -47,9 +71,9 @@ public class AlphaBetaPlayer extends GamePlayer {
 			double v = Double.NEGATIVE_INFINITY;
 			for(int i = 0; i < map.length; i++) {
 				for(int j = 0; j < map[0].length; j++) {
-					if(map[i][j]=='.'&&inRange(i,j+1,map)&&map[i][j+1]=='.') {
-						map[i][j] = 'x';
-						map[i][j+1] = 'x';
+					if(map[i][j]==emptySym && inRange(i,j+1,map) && map[i][j+1]==emptySym) {
+						map[i][j] = homeSym;
+						map[i][j+1] = homeSym;
 						if(d+1==MAX_DEPTH) {
 							stack[d+1][0] = i;
 							stack[d+1][1] = j;
@@ -66,10 +90,10 @@ public class AlphaBetaPlayer extends GamePlayer {
 							stack[d][3] = j+1;
 
 						}
-						map[i][j] = '.';
-						map[i][j+1] = '.';
+						map[i][j] = emptySym;
+						map[i][j+1] = emptySym;
 						a = Math.max(a, stack[d][4]);
-						if(stack[d][4]>=b || stack[d][4]==200) return;
+						if(stack[d][4]>=b || stack[d][4]== MAX_SCORE) return;
 					}
 				}
 			}
@@ -78,9 +102,9 @@ public class AlphaBetaPlayer extends GamePlayer {
 			double v = Double.POSITIVE_INFINITY;
 			for(int i = 0; i < map.length; i++) {
 				for(int j = 0; j < map[0].length; j++) {
-					if(map[i][j]=='.'&&inRange(i+1,j,map)&&map[i+1][j]=='.') {
-						map[i][j] = 'x';
-						map[i+1][j] = 'x';
+					if(map[i][j]==emptySym && inRange(i+1,j,map) && map[i+1][j]==emptySym) {
+						map[i][j] = awaySym;
+						map[i+1][j] = awaySym;
 						if(d+1==MAX_DEPTH) {
 							stack[d+1][0] = i;
 							stack[d+1][1] = j;
@@ -96,10 +120,10 @@ public class AlphaBetaPlayer extends GamePlayer {
 							stack[d][2] = i+1;
 							stack[d][3] = j;
 						}
-						map[i][j] = '.';
-						map[i+1][j] = '.';
+						map[i][j] = emptySym;
+						map[i+1][j] = emptySym;
 						b = Math.min(b, stack[d][4]);
-						if(stack[d][4]<=a || stack[d][4]==-200) return;
+						if(stack[d][4]<=a || stack[d][4]==-MAX_SCORE) return;
 					}
 				}
 			}
@@ -113,9 +137,9 @@ public class AlphaBetaPlayer extends GamePlayer {
 		for(int i = 0; i < board.length; i++) {
 			for(int j = 0; j < board[0].length; j++) {
 				if(isHome) {
-					if((board[i][j] == '.') && inRange(i,j+1,board) && (board[i][j+1] == '.')) h++;
+					if((board[i][j] == emptySym) && inRange(i,j+1,board) && (board[i][j+1] == emptySym)) h++;
 				} else {
-					if((board[i][j] == '.') && inRange(i+1,j,board) && (board[i+1][j] == '.')) h++;
+					if((board[i][j] == emptySym) && inRange(i+1,j,board) && (board[i+1][j] == emptySym)) h++;
 				}
 			}
 		}
@@ -131,7 +155,40 @@ public class AlphaBetaPlayer extends GamePlayer {
 		return h;
 
 	}
+	
+	public double ev2(char[][] board, boolean isHome) {
+		int realH = 0, realV = 0, safeH = 0, safeV = 0;
+		for(int i = 0; i < board.length; i++) {
+			for(int j = 0; j < board[0].length; j++) {
 
+				if((board[i][j] == emptySym) && inRange(i,j+1,board) && (board[i][j+1] == emptySym)) {
+					realH++;
+					if((!inRange(i-1,j,board) && !inRange(i-1,j+1,board)) || (board[i-1][j] != emptySym && board[i-1][j+1] != emptySym)) {
+						if((!inRange(i+1,j,board) && !inRange(i+1,j+1,board)) || (board[i+1][j] != emptySym && board[i+1][j+1] != emptySym)) {
+							safeH++;
+						}
+					}
+				}
+				
+				if((board[i][j] == emptySym) && inRange(i+1,j,board) && (board[i+1][j] == emptySym)) {
+					realV++;
+					if((!inRange(i,j-1,board) && !inRange(i+1,j-1,board)) || (board[i][j-1] != emptySym && board[i+1][j-1] != emptySym)) {
+						if((!inRange(i,j+1,board) && !inRange(i+1,j+1,board)) || (board[i][j+1] != emptySym && board[i+1][j+1] != emptySym)) {
+							safeV++;
+						}
+					}
+				}
+			}
+		}
+		if(isHome) {
+			if(realH == 0) return -MAX_SCORE;
+			return realH-realV+safeH-safeV;
+		} else {
+			if(realV == 0) return MAX_SCORE;
+			return realV-realH+safeV-safeH;
+		}
+	}
+	
 	public boolean inRange(int row, int col, char[][] board) {
 		return row >= 0 && col >= 0 && row < board.length && col < board[0].length;
 	}
