@@ -2,6 +2,7 @@ package domineering;
 
 import java.util.Random;
 
+import domineering.DomineeringTTEntry.NT;
 import game.*;
 
 public class AlphaBetaPlayer extends GamePlayer {
@@ -49,27 +50,51 @@ public class AlphaBetaPlayer extends GamePlayer {
 		isHome = state.who == GameState.Who.HOME; //HOME: true, AWAY: false
 		
 		if(isHome) {
-			MAX_DEPTH = 6;
+			MAX_DEPTH = 8;
 		} else {
-			MAX_DEPTH = 5;
+			MAX_DEPTH = 7;
 		}
 		
 		DomineeringMove[] stack = new DomineeringMove[MAX_DEPTH+1]; // stack, first 4 are row1,col1,row2,col2, this fifth is the best score
 		init(stack);
-
+		long start = System.currentTimeMillis();
 		alphabeta(board.board,0,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY,isHome,stack); //start alpha beta search
-System.out.println(stack[0]);
+		long end = System.currentTimeMillis();
+		System.out.println(stack[0] + "\tTime: " + (end-start));
 		return stack[0];
 	}
 	public void alphabeta(char[][] map, int d, double a, double b, boolean isHome, DomineeringMove[] stack) {
+		DomineeringBoard board = new DomineeringBoard(map,isHome);
+		DomineeringMove move;
+		
+		DomineeringTTEntry tte = tt.getEntry(board.getHashKey());
+		if(tte != null && tte.getDepth() <= d) {
+			if(tte.getType() == NT.EXACT) {
+				stack[d].score = tte.getScore();
+				//System.out.println("prump1");
+				return;
+			}
+			if(tte.getType() == NT.LOWERBOUND && tte.getScore() > a) a = tte.getScore();
+			else if(tte.getType() == NT.UPPERBOUNT && tte.getScore() < b) b = tte.getScore();
+			if(a >= b) {
+				stack[d].score = tte.getScore();
+				//System.out.println("prump2");
+				return;
+			}
+		}
+		
 		double ev_tem = 0;
 		ev_tem = ev2(map,isHome);
 		if(d == MAX_DEPTH || Math.abs(ev_tem) == MAX_SCORE) {
 			stack[d].score = ev_tem;
+			
+			if(ev_tem <= a) tt.store(new DomineeringTTEntry(board.getHashKey(),ev_tem,NT.LOWERBOUND,d)); 
+			else if(ev_tem >= b) tt.store(new DomineeringTTEntry(board.getHashKey(),ev_tem,NT.UPPERBOUNT,d)); 
+			else tt.store(new DomineeringTTEntry(board.getHashKey(),ev_tem,NT.EXACT,d)); 
+			
 			return ;
 		}
-		DomineeringBoard board = new DomineeringBoard(map,isHome);
-		DomineeringMove move;
+		
 		if(isHome) {
 			double v = Double.NEGATIVE_INFINITY;
 			while(board.hasNext()) {
@@ -89,6 +114,11 @@ System.out.println(stack[0]);
 				a = Math.max(a, stack[d].score);
 				if(stack[d].score>=b || stack[d].score== MAX_SCORE) return;
 			}
+			
+			if(stack[d].score <= a) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.LOWERBOUND,d)); 
+			else if(stack[d].score >= b) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.UPPERBOUNT,d)); 
+			else tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.EXACT,d)); 
+			
 			return;
 		} else {
 			double v = Double.POSITIVE_INFINITY;
@@ -109,6 +139,11 @@ System.out.println(stack[0]);
 				b = Math.min(b, stack[d].score);
 				if(stack[d].score<=a || stack[d].score==-MAX_SCORE) return;
 			}
+			
+			if(stack[d].score <= a) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.LOWERBOUND,d)); 
+			else if(stack[d].score >= b) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.UPPERBOUNT,d)); 
+			else tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,NT.EXACT,d)); 
+			
 			return;
 		}
 	}
