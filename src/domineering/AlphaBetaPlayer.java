@@ -1,131 +1,113 @@
 package domineering;
 
+import java.util.Random;
+
 import game.*;
 
-import java.util.*;
-
 public class AlphaBetaPlayer extends GamePlayer {
-	public final int EV = 2;
+
 	public int MAX_DEPTH = -1;
-	public static final double MAX_SCORE = 100000;
+	public static final double MAX_SCORE = Double.POSITIVE_INFINITY;
 	boolean isHome;
-	public char homeSym;
-	public char emptySym;
-	public char awaySym;
-	
+	public static char homeSym;
+	public static char emptySym;
+	public static char awaySym;
+	public static int[][][] zobristArray;
+	private DomineeringTT tt;
+
 	public static void main(String [] args) {
 		GamePlayer p = new AlphaBetaPlayer("liaom2"); //create player with nikename
 		p.compete(args, 1);
 	}
-	
+
 	public AlphaBetaPlayer(String n) {
 		super(n, "Domineering"); //n: nikename
+		zobristArray = new int[2][8][8];
+		initZobristArray(zobristArray);
+		tt = new DomineeringTT();
 	}
-	
-	public GameMove getMove(GameState state, String lastMove) {
-		DomineeringState board = (DomineeringState)state;
-		
-		homeSym = board.homeSym;
-		awaySym = board.awaySym;
-		emptySym = board.emptySym;
-		
-		isHome = state.who == GameState.Who.HOME; //HOME: true, AWAY: false
-		if(EV == 1) {
-			MAX_DEPTH = 7;
-		} else if(EV == 2) {
-			if(isHome) {
-				MAX_DEPTH = 6;
-			} else {
-				MAX_DEPTH = 5;
+
+	private void initZobristArray(int[][][] zobristArray) {
+		Random rnd = new Random(System.currentTimeMillis());
+		for(int i = 0; i < zobristArray.length; i++) {
+			for(int j = 0; j < zobristArray[0].length; j++) {
+				for(int k = 0; k < zobristArray[0][0].length; k++) {
+					zobristArray[i][j][k] = rnd.nextInt(Integer.MAX_VALUE / 2);
+				}
 			}
 		}
 		
-		DomineeringMove mve = new DomineeringMove();
-
-		double[][] stack = new double[MAX_DEPTH+1][5]; // stack, first 4 are row1,col1,row2,col2, this fifth is the best score
-		
-		alphabeta(board.board,0,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY,isHome,stack); //start alpha beta search
-		
-		//parse move
-		mve.row1 = (int) stack[0][0];
-		mve.col1 = (int) stack[0][1];
-		mve.row2 = (int) stack[0][2];
-		mve.col2 = (int) stack[0][3];
-		
-		//return move
-		return mve;
 	}
-	public void alphabeta(char[][] map, int d, double a, double b, boolean isHome, double[][] stack) {
-		double ev_tem = 0;
-		if(EV == 1) {
-			ev_tem = h(map,isHome);
-		} else if(EV == 2) {
-			ev_tem = ev2(map,isHome);
+
+	public GameMove getMove(GameState state, String lastMove) {
+		DomineeringState board = (DomineeringState)state;
+
+		homeSym = board.homeSym;
+		awaySym = board.awaySym;
+		emptySym = board.emptySym;
+
+		isHome = state.who == GameState.Who.HOME; //HOME: true, AWAY: false
+		
+		if(isHome) {
+			MAX_DEPTH = 6;
+		} else {
+			MAX_DEPTH = 5;
 		}
+		
+		DomineeringMove[] stack = new DomineeringMove[MAX_DEPTH+1]; // stack, first 4 are row1,col1,row2,col2, this fifth is the best score
+		init(stack);
+
+		alphabeta(board.board,0,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY,isHome,stack); //start alpha beta search
+System.out.println(stack[0]);
+		return stack[0];
+	}
+	public void alphabeta(char[][] map, int d, double a, double b, boolean isHome, DomineeringMove[] stack) {
+		double ev_tem = 0;
+		ev_tem = ev2(map,isHome);
 		if(d == MAX_DEPTH || Math.abs(ev_tem) == MAX_SCORE) {
-			stack[d][4]=ev_tem;
+			stack[d].score = ev_tem;
 			return ;
 		}
-
+		DomineeringBoard board = new DomineeringBoard(map,isHome);
+		DomineeringMove move;
 		if(isHome) {
 			double v = Double.NEGATIVE_INFINITY;
-			for(int i = 0; i < map.length; i++) {
-				for(int j = 0; j < map[0].length; j++) {
-					if(map[i][j]==emptySym && inRange(i,j+1,map) && map[i][j+1]==emptySym) {
-						map[i][j] = homeSym;
-						map[i][j+1] = homeSym;
-						if(d+1==MAX_DEPTH) {
-							stack[d+1][0] = i;
-							stack[d+1][1] = j;
-							stack[d+1][2] = i;
-							stack[d+1][3] = j+1;
-						}
-						alphabeta(map,d+1,a,b,false,stack);
-						if(stack[d+1][4] > v) {
-							v = stack[d+1][4];
-							stack[d][4] = v;
-							stack[d][0] = i;
-							stack[d][1] = j;
-							stack[d][2] = i;
-							stack[d][3] = j+1;
-
-						}
-						map[i][j] = emptySym;
-						map[i][j+1] = emptySym;
-						a = Math.max(a, stack[d][4]);
-						if(stack[d][4]>=b || stack[d][4]== MAX_SCORE) return;
-					}
+			while(board.hasNext()) {
+				move = board.next();
+				map[move.row1][move.col1] = homeSym;
+				map[move.row2][move.col2] = homeSym;
+				if(d+1==MAX_DEPTH) {
+					stack[d+1].set(move.row1, move.col1, move.row2, move.col2);
 				}
+				alphabeta(map,d+1,a,b,false,stack);
+				if(stack[d+1].score > v) {
+					v = stack[d+1].score;
+					stack[d].set(move.row1, move.col1, move.row2, move.col2, v);
+				}
+				map[move.row1][move.col1] = emptySym;
+				map[move.row2][move.col2] = emptySym;
+				a = Math.max(a, stack[d].score);
+				if(stack[d].score>=b || stack[d].score== MAX_SCORE) return;
 			}
 			return;
 		} else {
 			double v = Double.POSITIVE_INFINITY;
-			for(int i = 0; i < map.length; i++) {
-				for(int j = 0; j < map[0].length; j++) {
-					if(map[i][j]==emptySym && inRange(i+1,j,map) && map[i+1][j]==emptySym) {
-						map[i][j] = awaySym;
-						map[i+1][j] = awaySym;
-						if(d+1==MAX_DEPTH) {
-							stack[d+1][0] = i;
-							stack[d+1][1] = j;
-							stack[d+1][2] = i+1;
-							stack[d+1][3] = j;
-						}
-						alphabeta(map,d+1,a,b,true,stack);
-						if(stack[d+1][4]<v) {
-							v = stack[d+1][4];
-							stack[d][4] = v;
-							stack[d][0] = i;
-							stack[d][1] = j;
-							stack[d][2] = i+1;
-							stack[d][3] = j;
-						}
-						map[i][j] = emptySym;
-						map[i+1][j] = emptySym;
-						b = Math.min(b, stack[d][4]);
-						if(stack[d][4]<=a || stack[d][4]==-MAX_SCORE) return;
-					}
+			while(board.hasNext()) {
+				move = board.next();
+				map[move.row1][move.col1] = awaySym;
+				map[move.row2][move.col2] = awaySym;
+				if(d+1==MAX_DEPTH) {
+					stack[d+1].set(move.row1, move.col1, move.row2, move.col2);
 				}
+				alphabeta(map,d+1,a,b,true,stack);
+				if(stack[d+1].score<v) {
+					v = stack[d+1].score;
+					stack[d].set(move.row1, move.col1, move.row2, move.col2, v);
+				}
+				map[move.row1][move.col1] = emptySym;
+				map[move.row2][move.col2] = emptySym;
+				b = Math.min(b, stack[d].score);
+				if(stack[d].score<=a || stack[d].score==-MAX_SCORE) return;
 			}
 			return;
 		}
@@ -155,7 +137,7 @@ public class AlphaBetaPlayer extends GamePlayer {
 		return h;
 
 	}
-	
+
 	public double ev2(char[][] board, boolean isHome) {
 		int realH = 0, realV = 0, safeH = 0, safeV = 0;
 		for(int i = 0; i < board.length; i++) {
@@ -169,7 +151,7 @@ public class AlphaBetaPlayer extends GamePlayer {
 						}
 					}
 				}
-				
+
 				if((board[i][j] == emptySym) && inRange(i+1,j,board) && (board[i+1][j] == emptySym)) {
 					realV++;
 					if((!inRange(i,j-1,board) && !inRange(i+1,j-1,board)) || (board[i][j-1] != emptySym && board[i+1][j-1] != emptySym)) {
@@ -188,9 +170,15 @@ public class AlphaBetaPlayer extends GamePlayer {
 			return realV-realH+safeV-safeH;
 		}
 	}
-	
+
 	public boolean inRange(int row, int col, char[][] board) {
 		return row >= 0 && col >= 0 && row < board.length && col < board[0].length;
+	}
+
+	public void init(DomineeringMove[] stack) {
+		for(int i = 0; i < stack.length; i++) {
+			stack[i] = new DomineeringMove(0,0,0,0,0);
+		}
 	}
 
 }
