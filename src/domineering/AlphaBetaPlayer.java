@@ -7,7 +7,7 @@ import game.*;
 public class AlphaBetaPlayer extends GamePlayer {
 
 	public int MAX_DEPTH = -1;
-	public static final double MAX_SCORE = Double.POSITIVE_INFINITY;
+	public static final double MAX_SCORE = 999999; //Noteice: Cannot use +- infinity
 	boolean isHome;
 	public static char homeSym;
 	public static char emptySym;
