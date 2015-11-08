@@ -1,14 +1,14 @@
-package domineering;
+package alphabuster;
 
-public class DomineeringTTEntry {
+public class TTEntry {
 	public static enum NT {LOWERBOUND,UPPERBOUNT,EXACT}; 
 	
-	private int hashkey;
+	private long hashkey;
 	private double score;
 	private NT type;
 	private int depth;
 	
-	public DomineeringTTEntry(int hashkey, double score, NT type,int depth) {
+	public TTEntry(long hashkey, double score, NT type,int depth) {
 		this.hashkey = hashkey;
 		this.score = score;
 		this.type = type;
@@ -16,16 +16,16 @@ public class DomineeringTTEntry {
 	}
 	
 	public boolean equals(Object o) {
-		if(!(o instanceof DomineeringTTEntry)) return false;
-		DomineeringTTEntry d = (DomineeringTTEntry) o;
+		if(!(o instanceof TTEntry)) return false;
+		TTEntry d = (TTEntry) o;
 		return d.hashkey == hashkey;
 	}
 
-	public int getHashkey() {
+	public long getHashkey() {
 		return hashkey;
 	}
 
-	public void setHashkey(int hashkey) {
+	public void setHashkey(long hashkey) {
 		this.hashkey = hashkey;
 	}
 

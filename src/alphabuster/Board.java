@@ -1,32 +1,33 @@
-package domineering;
+package alphabuster;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
+import domineering.*;
 
-public class DomineeringBoard implements Iterator{
+public class Board implements Iterator{
 	private char[][] board;
 	private boolean isHome;
-	private int hashKey;
+	private long hashKey;
 	public static Random rnd = new Random();
-	private ArrayList<DomineeringMove> moves; //0:i(y1), 1:j(x2), 2:y2, 3:x2
+	private ArrayList<Move> moves; //0:i(y1), 1:j(x2), 2:y2, 3:x2
 	
 	private static char homeSym = DomineeringState.homeSym;;
 	private static char emptySym = DomineeringState.emptySym;
 	private static char awaySym = DomineeringState.awaySym;
 	private String playerType;
-	private static int[][][] zobristArray = AlphaBetaTTPlayer.zobristArray;
+	private static long[][][] zobristArray = AlphaBuster.zobristArray;
 	
-	public DomineeringBoard(char[][] board, boolean isHome) {
+	public Board(char[][] board, boolean isHome) {
 		this(board,isHome,"alphabeta");
 		
 	}
 	
-	public DomineeringBoard(char[][] board, boolean isHome, String playType) {
+	public Board(char[][] board, boolean isHome, String playType) {
 		this.board = board;
 		this.isHome = isHome;
 		this.hashKey = 0;
-		this.moves = new ArrayList<DomineeringMove>();
+		this.moves = new ArrayList<Move>();
 		this.playerType = playType;
 		possibleMoves();
 		
@@ -35,21 +36,21 @@ public class DomineeringBoard implements Iterator{
 	public void possibleMoves() {
 		for(int i = 0; i < board.length; i++) {
 			for(int j = 0; j < board[0].length; j++) {
-				if(playerType.equals("alphabetatt") && board[i][j] != emptySym) hashKey ^= zobristArray[board[i][j] == homeSym?1:0][i][j];
+				if(playerType.equals("alphabetatt") && board[i][j] != emptySym) hashKey ^= zobristArray[i][j][board[i][j] == homeSym?1:0];
 				if(isHome && (board[i][j] == emptySym) && inRange(i,j+1,board) && (board[i][j+1] == emptySym)) {
-					moves.add(new DomineeringMove(i,j,i,j+1));
+					moves.add(new Move(i,j,i,j+1));
 					moves.get(moves.size()-1).score = evl(moves.get(moves.size()-1));
 					
 				}
 				if(!isHome && (board[i][j] == '.') && inRange(i+1,j,board) && (board[i+1][j] == '.')) {
-					moves.add(new DomineeringMove(i,j,i+1,j));
+					moves.add(new Move(i,j,i+1,j));
 					
 				}
 			}
 		}
 	}
 	
-	private double evl(DomineeringMove dm) {
+	private double evl(Move dm) {
 		board[dm.row1][dm.col1] = isHome?homeSym:awaySym;
 		board[dm.row2][dm.col2] = isHome?homeSym:awaySym;
 		int realH = 0, realV = 0, safeH = 0, safeV = 0;
@@ -108,14 +109,14 @@ public class DomineeringBoard implements Iterator{
 	}
 
 	@Override
-	public DomineeringMove next() {
+	public Move next() {
 		int pos;
 		
-		pos = random(); //random choice
-		//pos = best(); //possible best
+		//pos = random(); //random choice
+		pos = best(); //possible best
 		//pos = 0; //FIFO
 		
-		DomineeringMove temp = (DomineeringMove) moves.get(pos).clone();
+		Move temp = (Move) moves.get(pos).clone();
 		moves.remove(pos);
 		return temp;
 	}
@@ -145,7 +146,7 @@ public class DomineeringBoard implements Iterator{
 	@Override
 	public void remove() {}
 
-	public int getHashKey() {
+	public long getHashKey() {
 		return hashKey;
 	}
 

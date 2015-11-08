@@ -1,12 +1,18 @@
-package domineering;
+package alphabuster;
 
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
 
-import domineering.DomineeringTTEntry.NT;
+import alphabuster.TTEntry.NT;
+import domineering.*;
 import game.*;
 
-public class AlphaBetaTTPlayer extends GamePlayer {
+public class AlphaBuster extends GamePlayer {
 	public static final int FIRST_LAYER_DEBUG = 1;
 
 	public long total = 0;
@@ -16,27 +22,27 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 	public static char homeSym;
 	public static char emptySym;
 	public static char awaySym;
-	public static int[][][] zobristArray;
-	private DomineeringTT tt;
+	public static long[][][] zobristArray;
+	private TT tt;
 
-	public static void main(String [] args) {
-		GamePlayer p = new AlphaBetaTTPlayer("liaom_Alpha_Beta_TT"); //create player with nikename
+	public static void main(String [] args) throws FileNotFoundException {
+		GamePlayer p = new AlphaBuster("Alpha Buster Player"); //create player with nikename
 		p.compete(args, 1);
 	}
 
-	public AlphaBetaTTPlayer(String n) {
+	public AlphaBuster(String n) throws FileNotFoundException {
 		super(n, "Domineering"); //n: nikename
-		zobristArray = new int[2][8][8];
+		zobristArray = new long[8][8][2];
 		initZobristArray(zobristArray);
-		tt = new DomineeringTT(6000000);
+		tt = new TT(1560241);
 	}
 
-	private void initZobristArray(int[][][] zobristArray) {
-		Random rnd = new Random(System.currentTimeMillis());
-		for(int i = 0; i < zobristArray.length; i++) {
-			for(int j = 0; j < zobristArray[0].length; j++) {
-				for(int k = 0; k < zobristArray[0][0].length; k++) {
-					zobristArray[i][j][k] = rnd.nextInt(Integer.MAX_VALUE/2);
+	private void initZobristArray(long[][][] zobristArray) throws FileNotFoundException {
+		Scanner sc = new Scanner(new File("zobrist.txt"));
+		for(int i = 0; i < 8; i++) {
+			for(int j = 0; j < 8; j++) {
+				for(int k = 0; k < 2; k++) {
+					zobristArray[i][j][k] = sc.nextLong();
 				}
 			}
 		}
@@ -48,37 +54,105 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 		awaySym = board.awaySym;
 		emptySym = board.emptySym;
 		isHome = state.who == GameState.Who.HOME; //HOME: true, AWAY: false
+		
 		if(isHome) {
-			MAX_DEPTH = 8;
+			MAX_DEPTH = 6;
+			if(board.numMoves>=6) MAX_DEPTH=8;
+			if(board.numMoves>=8) MAX_DEPTH=10;
+			if(board.numMoves>=10) MAX_DEPTH=12;
 		} else {
 			MAX_DEPTH = 7;
+			if(board.numMoves>=6) MAX_DEPTH=9;
+			if(board.numMoves>=10) MAX_DEPTH=11;
+			if(board.numMoves>=12) MAX_DEPTH=13;
 		}
-		DomineeringMove[] stack = new DomineeringMove[MAX_DEPTH+1]; // stack, first 4 are row1,col1,row2,col2, this fifth is the best score
+		
+		Move[] stack = new Move[MAX_DEPTH+1]; 
 		init(stack);
+		
+		if(isHome == true) {
+			if(board.numMoves == 0) {
+				Move[] temp = new Move[4];
+				temp[0] = new Move(1,2,1,3);
+				temp[1] = new Move(1,4,1,5);
+				temp[2] = new Move(6,2,6,3);
+				temp[3] = new Move(6,4,6,5);
+				Random rnd = new Random();
+				return temp[rnd.nextInt(4)];
+			} else if(board.numMoves == 2) {
+				Map map = new HashMap();
+				Scanner sc;
+				try {
+					sc = new Scanner(new File("home3.txt"));
+					while(sc.hasNextLine()) {
+						String s = sc.nextLine();
+						String[] sp = s.split("\\s+");
+						long key = Long.parseLong(sp[0]);
+						Move value = new Move(Integer.parseInt(sp[1]),Integer.parseInt(sp[2]),Integer.parseInt(sp[3]),Integer.parseInt(sp[4]));
+						map.put(key, value);
+					}
+					long hash = new Board(board.board, isHome, "alphabetatt").getHashKey();
+					Move rtn = (Move) map.get(hash);
+					if(rtn != null) return rtn;
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+			}
+		} else {
+			if(board.numMoves == 1) {
+				Map map = new HashMap();
+				Scanner sc;
+				try {
+					sc = new Scanner(new File("away2.txt"));
+					while(sc.hasNextLine()) {
+						String s = sc.nextLine();
+						String[] sp = s.split("\\s+");
+						long key = Long.parseLong(sp[0]);
+						Move value = new Move(Integer.parseInt(sp[1]),Integer.parseInt(sp[2]),Integer.parseInt(sp[3]),Integer.parseInt(sp[4]));
+						map.put(key, value);
+					}
+					long hash = new Board(board.board, isHome, "alphabetatt").getHashKey();
+					Move rtn = (Move) map.get(hash);
+					if(rtn != null) return rtn;
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+			}
+		}
+		
 		long start = System.currentTimeMillis();
 		alphabetaTT(board.board,0,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY,isHome,stack); 
 		long end = System.currentTimeMillis();
+		
 		total += (end-start);
 		System.out.printf("%s %3d Time: %-4d Total:%d\n",stack[0],(int) stack[0].score,(end-start),total);
+		tt.print();
+		
+		System.out.println("Move: "+board.numMoves);
+		
 		return stack[0];
 	}
 
-	public void alphabetaTT(char[][] map, int d, double a, double b, boolean isHome, DomineeringMove[] stack) {
+	public void alphabetaTT(char[][] map, int d, double a, double b, boolean isHome, Move[] stack) {
 		double ev_tem = 0;
 		ev_tem = ev2(map,isHome);
 		if(d == MAX_DEPTH || Math.abs(ev_tem) == MAX_SCORE) {
 			stack[d].score = ev_tem;
 			return ;
 		}
-		DomineeringBoard board = new DomineeringBoard(map,isHome,"alphabetatt");
-		DomineeringTTEntry tte = tt.getEntry(board.getHashKey());
+		Board board = new Board(map,isHome,"alphabetatt");
+		TTEntry tte = tt.getEntry(board.getHashKey());
 		if(tte != null && tte.getDepth()<=d) {
-			if(tte.getType() == DomineeringTTEntry.NT.EXACT) {
+			if(tte.getType() == TTEntry.NT.EXACT) {
 				stack[d].score = tte.getScore();
 				return;
 			}
-			if(tte.getType() == DomineeringTTEntry.NT.LOWERBOUND && tte.getScore() > a) a = tte.getScore();
-			else if(tte.getType() == DomineeringTTEntry.NT.UPPERBOUNT && tte.getScore() < b) b = tte.getScore();
+			if(tte.getType() == TTEntry.NT.LOWERBOUND && tte.getScore() > a) a = tte.getScore();
+			else if(tte.getType() == TTEntry.NT.UPPERBOUNT && tte.getScore() < b) b = tte.getScore();
 			if(a >= b) {
 				stack[d].score = tte.getScore();
 				return;
@@ -86,7 +160,7 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 		}
 		
 		if(board.getSize() == 0) System.out.println(isHome+"\t"+d);
-		DomineeringMove move;
+		Move move;
 		if(isHome) {
 			double v = Double.NEGATIVE_INFINITY;
 			while(board.hasNext()) {
@@ -105,11 +179,12 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 				map[move.row1][move.col1] = emptySym;
 				map[move.row2][move.col2] = emptySym;
 				a = Math.max(a, stack[d].score);
-				if(stack[d].score <= a) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.LOWERBOUND,d)); 
-				else if(stack[d].score >= b) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.UPPERBOUNT,d)); 
-				else tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.EXACT,d));
+				
 				if(stack[d].score>=b || stack[d].score== MAX_SCORE) return;
 			}
+			if(stack[d].score < a) tt.store(new TTEntry(board.getHashKey(),stack[d].score,TTEntry.NT.LOWERBOUND,d)); 
+			else if(stack[d].score > b) tt.store(new TTEntry(board.getHashKey(),stack[d].score,TTEntry.NT.UPPERBOUNT,d)); 
+
 			return;
 		} else {
 			double v = Double.POSITIVE_INFINITY;
@@ -129,11 +204,11 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 				map[move.row1][move.col1] = emptySym;
 				map[move.row2][move.col2] = emptySym;
 				b = Math.min(b, stack[d].score);
-				if(stack[d].score <= a) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.LOWERBOUND,d)); 
-				else if(stack[d].score >= b) tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.UPPERBOUNT,d)); 
-				else tt.store(new DomineeringTTEntry(board.getHashKey(),stack[d].score,DomineeringTTEntry.NT.EXACT,d));
+				
 				if(stack[d].score<=a || stack[d].score==-MAX_SCORE) return;
 			}
+			if(stack[d].score < a) tt.store(new TTEntry(board.getHashKey(),stack[d].score,TTEntry.NT.LOWERBOUND,d)); 
+			else if(stack[d].score > b) tt.store(new TTEntry(board.getHashKey(),stack[d].score,TTEntry.NT.UPPERBOUNT,d)); 
 			return;
 		}
 	}
@@ -175,9 +250,9 @@ public class AlphaBetaTTPlayer extends GamePlayer {
 		return row >= 0 && col >= 0 && row < board.length && col < board[0].length;
 	}
 
-	public void init(DomineeringMove[] stack) {
+	public void init(Move[] stack) {
 		for(int i = 0; i < stack.length; i++) {
-			stack[i] = new DomineeringMove(0,0,0,0,0);
+			stack[i] = new Move(0,0,0,0,0);
 		}
 	}
 
