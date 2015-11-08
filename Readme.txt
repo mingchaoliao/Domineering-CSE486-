@@ -1,2 +1,1 @@
-Compile: no args
-Run: no args
+Compile & Run: compiles and runs in eclipse but not on computers in 002.
