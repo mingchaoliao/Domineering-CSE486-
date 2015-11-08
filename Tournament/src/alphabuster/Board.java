@@ -16,7 +16,7 @@ public class Board implements Iterator{
 	private static char emptySym = DomineeringState.emptySym;
 	private static char awaySym = DomineeringState.awaySym;
 	private String playerType;
-	private static long[][][] zobristArray = AlphaBuster.zobristArray;
+	private static long[][][] zobristArray = AlphaBusterPlayer.zobristArray;
 	
 	public Board(char[][] board, boolean isHome) {
 		this(board,isHome,"alphabeta");
