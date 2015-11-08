@@ -58,13 +58,13 @@ public class AlphaBuster extends GamePlayer {
 		if(isHome) {
 			MAX_DEPTH = 6;
 			if(board.numMoves>=6) MAX_DEPTH=8;
-			if(board.numMoves>=8) MAX_DEPTH=10;
-			if(board.numMoves>=10) MAX_DEPTH=12;
+			if(board.numMoves>=12) MAX_DEPTH=10;
+			if(board.numMoves>=14) MAX_DEPTH=12;
 		} else {
 			MAX_DEPTH = 7;
 			if(board.numMoves>=6) MAX_DEPTH=9;
-			if(board.numMoves>=10) MAX_DEPTH=11;
-			if(board.numMoves>=12) MAX_DEPTH=13;
+			if(board.numMoves>=12) MAX_DEPTH=11;
+			if(board.numMoves>=14) MAX_DEPTH=13;
 		}
 		
 		Move[] stack = new Move[MAX_DEPTH+1]; 
